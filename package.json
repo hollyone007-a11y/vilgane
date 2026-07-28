@@ -1,0 +1,17 @@
+{
+  "name": "vilgane",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Учёт часов из GIRITON: автоматическая синхронизация докладки, ручные имена, ставки и авансы",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --env-file=.env --watch src/server.js",
+    "migrate": "node src/migrate.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}

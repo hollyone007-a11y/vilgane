@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Vilgane — учёт часов</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⏱</text></svg>" />
+</head>
+<body>
+
+<!-- Вход -->
+<section id="login" class="login hidden">
+  <form class="login-card" id="login-form">
+    <div class="login-logo">⏱</div>
+    <h1>Vilgane</h1>
+    <p class="muted">Учёт часов из GIRITON</p>
+    <input type="password" id="password" placeholder="Пароль" autocomplete="current-password" required />
+    <button class="btn primary" type="submit">Войти</button>
+    <div class="alert error hidden" id="login-error"></div>
+  </form>
+</section>
+
+<!-- Приложение -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand"><span class="logo">⏱</span> Vilgane</div>
+    <div class="period">
+      <select id="month" aria-label="Месяц"></select>
+      <select id="year" aria-label="Год"></select>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn primary" id="btn-sync">↻ Синхронизировать</button>
+    <a class="btn ghost" id="btn-export" href="#">↓ CSV</a>
+    <button class="btn ghost" id="btn-logout" title="Выйти">⎋</button>
+  </header>
+
+  <main class="wrap">
+    <div id="banner"></div>
+
+    <section class="stats">
+      <div class="stat"><span class="stat-label">Сотрудников</span><b class="stat-value" id="s-count">—</b></div>
+      <div class="stat"><span class="stat-label">Часов</span><b class="stat-value mono" id="s-hours">—</b></div>
+      <div class="stat"><span class="stat-label">Начислено</span><b class="stat-value mono" id="s-gross">—</b></div>
+      <div class="stat"><span class="stat-label">Авансы</span><b class="stat-value mono warn" id="s-adv">—</b></div>
+      <div class="stat accent"><span class="stat-label">К выплате</span><b class="stat-value mono" id="s-payout">—</b></div>
+    </section>
+
+    <div class="toolbar">
+      <input id="search" class="input" placeholder="Поиск: ID, карта, имя…" />
+      <span class="muted small" id="sync-info"></span>
+    </div>
+
+    <div class="card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="w-id">ID</th>
+            <th>Карта</th>
+            <th class="w-name">Имя</th>
+            <th class="right">Часы</th>
+            <th class="right w-rate">Ставка</th>
+            <th class="right">Начислено</th>
+            <th class="right">Авансы</th>
+            <th class="right">К выплате</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+      <div id="empty" class="empty hidden"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Панель авансов -->
+<div id="drawer" class="drawer hidden">
+  <div class="drawer-backdrop" data-close></div>
+  <aside class="drawer-panel">
+    <header class="drawer-head">
+      <div>
+        <div class="drawer-title" id="d-title">—</div>
+        <div class="muted small" id="d-sub">—</div>
+      </div>
+      <button class="btn ghost" data-close>✕</button>
+    </header>
+
+    <form class="adv-form" id="adv-form">
+      <div class="row">
+        <label>Сумма, Kč<input type="number" step="0.01" id="adv-amount" required /></label>
+        <label>Дата<input type="date" id="adv-date" /></label>
+      </div>
+      <label>Комментарий<input type="text" id="adv-comment" placeholder="за что выдан аванс" maxlength="500" /></label>
+      <button class="btn primary" type="submit">Добавить аванс</button>
+      <div class="alert error hidden" id="adv-error"></div>
+    </form>
+
+    <div class="adv-list" id="adv-list"></div>
+  </aside>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
