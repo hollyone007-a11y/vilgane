@@ -33,7 +33,9 @@ app.get('/api/cron/sync', async (req, res) => {
 
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 app.use('/api', api);
-app.use(express.static(path.join(dir, '..', 'public'), { maxAge: '1h', index: 'index.html' }));
+// Без кэша по времени: имена файлов не содержат хэш, иначе после деплоя браузер
+// ещё час отдавал бы старые app.js/styles.css. ETag оставляет ревалидацию дешёвой.
+app.use(express.static(path.join(dir, '..', 'public'), { maxAge: 0, etag: true, index: 'index.html' }));
 app.get('*', (req, res) => res.sendFile(path.join(dir, '..', 'public', 'index.html')));
 
 // Наружу отдаём только общее сообщение: детали ошибки остаются в логах сервера.

@@ -3,6 +3,7 @@ import { query } from '../db.js';
 import { requireAuth, passwordMatches, issueSession, clearSession, isLoggedIn } from '../auth.js';
 import { syncMonth, currentPeriod } from '../sync.js';
 import { checkToken, activityName } from '../giriton.js';
+import { syncNames } from '../names.js';
 
 const router = Router();
 
@@ -45,6 +46,7 @@ router.get('/rows', async (req, res) => {
   const { month, year } = period(req.query);
   const { rows } = await query(
     `SELECT w.id, w.person_number, w.card_id, w.name, w.giriton_name, w.rate, w.note,
+            w.name_source, w.sheet_status,
             COALESCE(a.hours, 0)      AS hours,
             a.activity, a.activities, a.synced_at,
             COALESCE(adv.total, 0)    AS advances_total,
@@ -73,7 +75,12 @@ router.get('/rows', async (req, res) => {
   }), { hours: 0, gross: 0, advances: 0, payout: 0 });
 
   const last = await query('SELECT * FROM sync_log ORDER BY created_at DESC LIMIT 1');
-  res.json({ month, year, items, totals, activity: activityName(), last_sync: last.rows[0] || null });
+  res.json({
+    month, year, items, totals,
+    activity: activityName(),
+    names_sheet: !!process.env.NAMES_SHEET_URL,
+    last_sync: last.rows[0] || null,
+  });
 });
 
 router.get('/years', async (req, res) => {
@@ -97,6 +104,12 @@ router.patch('/workers/:id', async (req, res) => {
       fields.push(`${key} = $${fields.length + 1}`);
       values.push(String(req.body[key]).slice(0, 300));
     }
+  }
+  // Правка руками закрепляет имя: таблица его больше не перезапишет.
+  // Очистили поле — снова отдаём имя на откуп таблице.
+  if (req.body.name !== undefined) {
+    fields.push(`name_source = $${fields.length + 1}`);
+    values.push(String(req.body.name).trim() ? 'manual' : '');
   }
   if (req.body.rate !== undefined) {
     const rate = Number(req.body.rate);
@@ -160,6 +173,16 @@ router.post('/sync', async (req, res) => {
   try {
     const r = await syncMonth({ month, year, source: 'manual' });
     res.json({ ok: true, ...r });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// Отдельная синхронизация имён из Google-таблицы, без обращения к GIRITON.
+router.post('/sync/names', async (req, res) => {
+  if (!process.env.NAMES_SHEET_URL) return res.status(400).json({ error: 'NAMES_SHEET_URL не задан' });
+  try {
+    res.json({ ok: true, ...(await syncNames()) });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }

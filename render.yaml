@@ -25,6 +25,8 @@ services:
         sync: false               # задать вручную в панели Render
       - key: GIRITON_ACTIVITY
         value: Práce (celkem)
+      - key: NAMES_SHEET_URL
+        sync: false               # ссылка на таблицу с ФИО — задать вручную, не хранить в публичном репо
       - key: SYNC_INTERVAL_MINUTES
         value: "60"
 

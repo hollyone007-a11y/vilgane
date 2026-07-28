@@ -2,6 +2,7 @@
 // Ручные поля — имя, ставка, комментарий — НИКОГДА не перезаписываются синхронизацией.
 import { query } from './db.js';
 import { fetchMonth, activityName } from './giriton.js';
+import { syncNames } from './names.js';
 
 export function currentPeriod() {
   const d = new Date();
@@ -43,8 +44,18 @@ export async function syncMonth({ month, year, source = 'manual' }) {
       [w.rows[0].id, month, year, r.hours, r.activity, JSON.stringify(r.activities)]);
   }
 
+  // Имена подтягиваем следом, чтобы новые ID из GIRITON сразу получили ФИО из таблицы.
+  let names = null;
+  if (process.env.NAMES_SHEET_URL) {
+    try {
+      names = await syncNames();
+    } catch (e) {
+      names = { error: e.message };
+    }
+  }
+
   await log({ month, year, ok: true, workers: data.rows.length, message: `${data.dateFrom} — ${data.dateTo}`, source });
-  return { count: data.rows.length, ...data, rows: undefined };
+  return { count: data.rows.length, ...data, rows: undefined, names };
 }
 
 async function log({ month, year, ok, workers, message, source }) {

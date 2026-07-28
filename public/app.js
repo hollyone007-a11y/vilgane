@@ -73,6 +73,8 @@ async function load() {
   state.activity = data.activity;
   $('#btn-export').href = `/api/export.csv?month=${state.month}&year=${state.year}`;
 
+  $('#btn-names').classList.toggle('hidden', !data.names_sheet);
+
   const s = data.last_sync;
   $('#sync-info').textContent = s
     ? `Последняя синхронизация: ${new Date(s.created_at).toLocaleString('ru-RU')}` +
@@ -112,8 +114,12 @@ function render() {
       <td class="mono"><b>${esc(r.person_number)}</b></td>
       <td class="mono small muted">${esc(r.card_id || '—')}</td>
       <td>
-        <input class="cell-input js-name ${r.name ? '' : 'name-missing'}" value="${esc(r.name)}"
-               placeholder="${esc(r.giriton_name || 'вписать имя')}" maxlength="300" />
+        <div class="name-cell">
+          <input class="cell-input js-name ${r.name ? '' : 'name-missing'}" value="${esc(r.name)}"
+                 placeholder="${esc(r.giriton_name || 'вписать имя')}" maxlength="300"
+                 title="${r.name_source === 'sheet' ? 'Имя из Google-таблицы' : r.name_source === 'manual' ? 'Имя введено вручную' : ''}" />
+          ${statusBadge(r.sheet_status)}
+        </div>
       </td>
       <td class="right mono">${fmt(r.hours)}</td>
       <td class="right">
@@ -140,6 +146,15 @@ function render() {
 }
 
 const sum = (rows, key) => rows.reduce((a, r) => a + (Number(r[key]) || 0), 0);
+
+// Статус из Google-таблицы: «Активен» не показываем, он и так норма.
+function statusBadge(status) {
+  const s = String(status || '').trim();
+  // Именно «начинается с», иначе «Неактивен» тоже попадёт под «актив» и статус исчезнет.
+  if (!s || /^актив/i.test(s)) return '';
+  const kind = /неактив|уволен/i.test(s) ? 'off' : 'away';
+  return `<span class="status ${kind}">${esc(s)}</span>`;
+}
 
 /* ---------- правка имени и ставки ---------- */
 
@@ -275,13 +290,31 @@ $('#btn-sync').addEventListener('click', async () => {
   btn.textContent = 'Синхронизация…';
   try {
     const r = await api('POST', '/api/sync', { month: state.month, year: state.year });
-    banner('success', `Перенесено сотрудников: ${r.count} (${r.dateFrom} — ${r.dateTo})`);
+    const n = r.names;
+    const tail = !n ? ''
+      : n.error ? ` · имена не подтянулись: ${n.error}`
+      : ` · имена: обновлено ${n.updated}, добавлено ${n.created}`;
+    banner('success', `Перенесено сотрудников: ${r.count} (${r.dateFrom} — ${r.dateTo})${tail}`);
     await load();
   } catch (ex) {
     banner('error', ex.message);
   } finally {
     btn.disabled = false;
     btn.textContent = '↻ Синхронизировать';
+  }
+});
+
+$('#btn-names').addEventListener('click', async () => {
+  const btn = $('#btn-names');
+  btn.disabled = true;
+  try {
+    const r = await api('POST', '/api/sync/names');
+    banner('success', `Имена из таблицы: строк ${r.people}, обновлено ${r.updated}, добавлено ${r.created}`);
+    await load();
+  } catch (ex) {
+    banner('error', ex.message);
+  } finally {
+    btn.disabled = false;
   }
 });
 

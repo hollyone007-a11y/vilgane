@@ -16,6 +16,12 @@ CREATE TABLE IF NOT EXISTS workers (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS workers_person_number_key ON workers(person_number);
 
+-- Источник имени и данные из Google-таблицы со списком сотрудников.
+-- name_source = 'manual' означает «правили руками», такое имя таблица не перезаписывает.
+ALTER TABLE workers ADD COLUMN IF NOT EXISTS name_source  TEXT NOT NULL DEFAULT '';
+ALTER TABLE workers ADD COLUMN IF NOT EXISTS sheet_status TEXT NOT NULL DEFAULT '';
+ALTER TABLE workers ADD COLUMN IF NOT EXISTS sheet_email  TEXT;
+
 -- Часы за месяц, полностью перезаписываются синхронизацией.
 CREATE TABLE IF NOT EXISTS attendance (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
