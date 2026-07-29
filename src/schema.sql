@@ -1,5 +1,13 @@
 -- Vilgane: схема БД. Все выражения идемпотентны — файл прогоняется при каждом старте.
 
+-- Настройки приложения: токен GIRITON, ссылка на таблицу имён, пароль администратора.
+-- Лежат здесь, а не в переменных окружения, чтобы всё настраивалось на самом сайте.
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Сотрудник: ключ приходит из GIRITON (osobní číslo), имя и ставка заполняются вручную.
 CREATE TABLE IF NOT EXISTS workers (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),

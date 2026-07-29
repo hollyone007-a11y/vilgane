@@ -101,7 +101,8 @@ function render() {
   const empty = $('#empty');
   if (!state.items.length) {
     empty.classList.remove('hidden');
-    empty.innerHTML = 'Данных за этот месяц нет.<br><span class="small">Нажмите «Синхронизировать», чтобы подтянуть докладку из GIRITON.</span>';
+    empty.innerHTML = 'Данных за этот месяц нет.<br><span class="small">Нажмите «Синхронизировать», '
+      + 'чтобы подтянуть докладку из GIRITON. Если токен ещё не введён — откройте ⚙ «Настройки».</span>';
   } else if (!rows.length) {
     empty.classList.remove('hidden');
     empty.textContent = 'Ничего не найдено.';
@@ -228,7 +229,7 @@ async function openDrawer(row) {
 
 function closeDrawer() { $('#drawer').classList.add('hidden'); state.worker = null; }
 $('#drawer').addEventListener('click', (e) => { if (e.target.dataset.close !== undefined) closeDrawer(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); closeSettings(); } });
 
 async function loadAdvances() {
   const list = await api('GET', `/api/workers/${state.worker.id}/advances?month=${state.month}&year=${state.year}`);
@@ -280,6 +281,75 @@ $('#adv-list').addEventListener('click', async (e) => {
   if (!confirm('Удалить этот аванс?')) return;
   await api('DELETE', `/api/advances/${id}`);
   await loadAdvances();
+});
+
+/* ---------- настройки ---------- */
+
+const show = (sel, type, text) => {
+  const el = $(sel);
+  el.textContent = text;
+  el.classList.remove('hidden');
+  if (type === 'ok') setTimeout(() => el.classList.add('hidden'), 4000);
+};
+const hideMsgs = (...sels) => sels.forEach((s) => $(s).classList.add('hidden'));
+
+$('#btn-settings').addEventListener('click', async () => {
+  const s = await api('GET', '/api/settings');
+  $('#set-token').value = '';
+  $('#set-token').placeholder = s.giriton_token_set ? `сохранён: ${s.giriton_token_hint}` : 'firma.xxxx-xxxx-xxxx-xxxx';
+  $('#set-activity').value = s.giriton_activity || '';
+  $('#set-sheet').value = s.names_sheet_url || '';
+  $('#set-interval').value = s.sync_interval_minutes || '0';
+
+  // Значение из переменной окружения на сайте не переопределить — поле только для чтения.
+  for (const [key, sel] of [['giriton_token', '#set-token'], ['giriton_activity', '#set-activity'],
+    ['names_sheet_url', '#set-sheet'], ['sync_interval_minutes', '#set-interval']]) {
+    $(sel).disabled = !!s.locked[key];
+    if (s.locked[key]) $(sel).title = 'Задано переменной окружения на сервере';
+  }
+  $('#password-form').classList.toggle('hidden', s.password_from_env);
+
+  hideMsgs('#set-error', '#set-ok', '#pw-error', '#pw-ok');
+  $('#settings').classList.remove('hidden');
+});
+
+function closeSettings() { $('#settings').classList.add('hidden'); }
+$('#settings').addEventListener('click', (e) => {
+  if (e.target.dataset.closeSettings !== undefined) closeSettings();
+});
+
+$('#settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideMsgs('#set-error', '#set-ok');
+  try {
+    await api('PUT', '/api/settings', {
+      giriton_token: $('#set-token').value,
+      giriton_activity: $('#set-activity').value,
+      names_sheet_url: $('#set-sheet').value,
+      sync_interval_minutes: $('#set-interval').value,
+    });
+    $('#set-token').value = '';
+    show('#set-ok', 'ok', 'Сохранено');
+    await load();
+  } catch (ex) {
+    show('#set-error', 'err', ex.message);
+  }
+});
+
+$('#password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideMsgs('#pw-error', '#pw-ok');
+  try {
+    await api('PUT', '/api/settings/password', {
+      current: $('#pw-current').value,
+      next: $('#pw-next').value,
+    });
+    $('#pw-current').value = '';
+    $('#pw-next').value = '';
+    show('#pw-ok', 'ok', 'Пароль изменён');
+  } catch (ex) {
+    show('#pw-error', 'err', ex.message);
+  }
 });
 
 /* ---------- синхронизация ---------- */

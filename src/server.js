@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { migrate } from './db.js';
 import api from './routes/api.js';
 import { syncMonth, currentPeriod, startAutoSync } from './sync.js';
+import { loadSettings, ensureSessionSecret, ensureAdminPassword } from './settings.js';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -45,12 +46,16 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
-migrate()
-  .then(() => {
-    app.listen(port, () => console.log(`Vilgane слушает :${port}`));
-    startAutoSync();
-  })
-  .catch((e) => {
-    console.error('Не удалось применить схему БД:', e.message);
-    process.exit(1);
-  });
+
+// Порядок важен: схема → настройки в кэш → секреты, которых ещё нет → приём запросов.
+(async () => {
+  await migrate();
+  await loadSettings();
+  await ensureSessionSecret();
+  await ensureAdminPassword();
+  app.listen(port, () => console.log(`Vilgane слушает :${port}`));
+  startAutoSync();
+})().catch((e) => {
+  console.error('Не удалось запуститься:', e.message);
+  process.exit(1);
+});

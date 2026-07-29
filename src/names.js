@@ -1,6 +1,7 @@
 // Синхронизация имён из Google-таблицы со списком сотрудников.
 // Таблица — источник имён; всё, что исправлено руками на сайте, остаётся нетронутым.
 import { query } from './db.js';
+import { getSetting } from './settings.js';
 
 // Принимает любую ссылку на таблицу (в том числе обычную «поделиться») и приводит её
 // к CSV-выгрузке. gviz работает и для загруженных .xlsx, в отличие от /export?format=csv.
@@ -98,7 +99,7 @@ export function parseNamesSheet(text) {
 
 export async function fetchNamesSheet(url) {
   const csv = toCsvUrl(url);
-  if (!csv) throw new Error('NAMES_SHEET_URL не задан.');
+  if (!csv) throw new Error('Ссылка на таблицу не задана. Откройте «Настройки» и вставьте её.');
   const r = await fetch(csv, { redirect: 'follow' });
   if (!r.ok) throw new Error(`Таблица недоступна: HTTP ${r.status}. Проверьте, что доступ «для всех, у кого есть ссылка».`);
   const text = await r.text();
@@ -110,7 +111,7 @@ export async function fetchNamesSheet(url) {
 
 // Раскладывает имена по уже известным сотрудникам и заводит недостающих.
 // Имя не трогаем, если его правили руками (name_source = 'manual').
-export async function syncNames(url = process.env.NAMES_SHEET_URL) {
+export async function syncNames(url = getSetting('names_sheet_url')) {
   const people = await fetchNamesSheet(url);
   let updated = 0;
   let created = 0;

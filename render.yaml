@@ -1,5 +1,8 @@
 # Blueprint для Render: веб-сервис + база одним разворотом.
-# Render Dashboard → New → Blueprint → выбрать этот репозиторий.
+# Render Dashboard → New → Blueprint → выбрать этот репозиторий → Apply.
+#
+# Заполнять здесь ничего не нужно: пароль генерируется при первом запуске и печатается
+# в лог сервиса, а токен GIRITON и ссылка на таблицу вводятся на самом сайте («Настройки»).
 services:
   - type: web
     name: vilgane
@@ -19,16 +22,6 @@ services:
         generateValue: true       # Render сгенерирует и сохранит сам
       - key: CRON_SECRET
         generateValue: true
-      - key: ADMIN_PASSWORD
-        sync: false               # задать вручную в панели Render
-      - key: GIRITON_API_TOKEN
-        sync: false               # задать вручную в панели Render
-      - key: GIRITON_ACTIVITY
-        value: Práce (celkem)
-      - key: NAMES_SHEET_URL
-        sync: false               # ссылка на таблицу с ФИО — задать вручную, не хранить в публичном репо
-      - key: SYNC_INTERVAL_MINUTES
-        value: "60"
 
 databases:
   - name: vilgane-db

@@ -1,10 +1,13 @@
-// Вход одним паролем (ADMIN_PASSWORD). Сессия — подписанная HMAC кука, без внешних зависимостей.
+// Вход одним паролем. Сессия — подписанная HMAC кука, без внешних зависимостей.
 import crypto from 'node:crypto';
+import { getSetting } from './settings.js';
 
 const COOKIE = 'vilgane_session';
 const MAX_AGE_DAYS = 30;
 
-const secret = () => process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || '';
+// Ключ подписи: из окружения, иначе постоянный случайный, сохранённый в настройках.
+// Привязывать его к паролю нельзя — смена пароля разлогинивала бы по-тихому.
+const secret = () => process.env.SESSION_SECRET || getSetting('session_secret') || '';
 
 function sign(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -25,14 +28,7 @@ function verify(value) {
   } catch { return null; }
 }
 
-// Сравнение пароля постоянное по времени — чтобы его нельзя было подобрать по задержке ответа.
-export function passwordMatches(input) {
-  const real = process.env.ADMIN_PASSWORD || '';
-  if (!real) return false;
-  const a = crypto.createHash('sha256').update(String(input ?? '')).digest();
-  const b = crypto.createHash('sha256').update(real).digest();
-  return crypto.timingSafeEqual(a, b);
-}
+export { checkAdminPassword as passwordMatches } from './settings.js';
 
 export function issueSession(res) {
   const token = sign({ exp: Date.now() + MAX_AGE_DAYS * 864e5 });

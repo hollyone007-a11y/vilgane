@@ -3,11 +3,14 @@
 // Токен создаётся один раз в GIRITON: Nastavení → Spárovaná zařízení → REST API token.
 // Спецификация: https://rest.giriton.com/apidoc/
 
+import { getSetting } from './settings.js';
+
 const BASE = process.env.GIRITON_API_URL || 'https://rest.giriton.com/system/api';
 
 // Показатель докладки, который считаем «часами».
 export const DEFAULT_ACTIVITY = 'Práce (celkem)';
-export const activityName = () => process.env.GIRITON_ACTIVITY || DEFAULT_ACTIVITY;
+export const activityName = () => getSetting('giriton_activity') || DEFAULT_ACTIVITY;
+export const apiToken = () => getSetting('giriton_token');
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -67,7 +70,7 @@ function mapItems(items, wantedName) {
 }
 
 // Тянет месячные итоги докладки по всем сотрудникам (с постраничным обходом).
-export async function fetchMonth({ month, year, token, activity = activityName() }) {
+export async function fetchMonth({ month, year, token = apiToken(), activity = activityName() }) {
   const { dateFrom, dateTo } = monthRange(month, year);
   const rows = [];
   let offset = 0;

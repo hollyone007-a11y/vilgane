@@ -34,6 +34,7 @@
     <button class="btn primary" id="btn-sync">↻ Синхронизировать</button>
     <button class="btn ghost hidden" id="btn-names" title="Подтянуть имена из Google-таблицы">👤 Имена</button>
     <a class="btn ghost" id="btn-export" href="#">↓ CSV</a>
+    <button class="btn ghost" id="btn-settings" title="Настройки">⚙</button>
     <button class="btn ghost" id="btn-logout" title="Выйти">⎋</button>
   </header>
 
@@ -98,6 +99,51 @@
     </form>
 
     <div class="adv-list" id="adv-list"></div>
+  </aside>
+</div>
+
+<!-- Настройки -->
+<div id="settings" class="drawer hidden">
+  <div class="drawer-backdrop" data-close-settings></div>
+  <aside class="drawer-panel">
+    <header class="drawer-head">
+      <div>
+        <div class="drawer-title">Настройки</div>
+        <div class="muted small">Здесь настраивается всё — в панели хостинга ничего вводить не нужно</div>
+      </div>
+      <button class="btn ghost" data-close-settings>✕</button>
+    </header>
+
+    <form class="adv-form" id="settings-form">
+      <label>Токен GIRITON REST API
+        <input type="text" id="set-token" placeholder="firma.xxxx-xxxx-xxxx-xxxx" autocomplete="off" />
+        <span class="muted small">Giriton → Nastavení → Spárovaná zařízení → REST API token.
+          Оставьте поле пустым, чтобы не менять сохранённый токен.</span>
+      </label>
+      <label>Показатель, считающийся часами
+        <input type="text" id="set-activity" placeholder="Práce (celkem)" />
+      </label>
+      <label>Ссылка на Google-таблицу с именами
+        <input type="url" id="set-sheet" placeholder="https://docs.google.com/spreadsheets/d/…" />
+        <span class="muted small">Подойдёт обычная ссылка «Поделиться».
+          Доступ: «Просматривать могут все, у кого есть ссылка».</span>
+      </label>
+      <label>Автосинхронизация, минут (0 — выключить)
+        <input type="number" id="set-interval" min="0" max="1440" step="5" />
+      </label>
+      <button class="btn primary" type="submit">Сохранить</button>
+      <div class="alert error hidden" id="set-error"></div>
+      <div class="alert success hidden" id="set-ok"></div>
+    </form>
+
+    <form class="adv-form" id="password-form">
+      <div class="drawer-title" style="font-size:15px">Смена пароля</div>
+      <label>Текущий пароль<input type="password" id="pw-current" autocomplete="current-password" /></label>
+      <label>Новый пароль (минимум 8 символов)<input type="password" id="pw-next" autocomplete="new-password" /></label>
+      <button class="btn" type="submit">Сменить пароль</button>
+      <div class="alert error hidden" id="pw-error"></div>
+      <div class="alert success hidden" id="pw-ok"></div>
+    </form>
   </aside>
 </div>
 

@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { query } from '../db.js';
 import { requireAuth, passwordMatches, issueSession, clearSession, isLoggedIn } from '../auth.js';
-import { syncMonth, currentPeriod } from '../sync.js';
-import { checkToken, activityName } from '../giriton.js';
-import { syncNames } from '../names.js';
+import { syncMonth, currentPeriod, startAutoSync } from '../sync.js';
+import { checkToken, activityName, apiToken } from '../giriton.js';
+import { syncNames, toCsvUrl } from '../names.js';
+import { getSetting, setSetting, isLockedByEnv, hashPassword, checkAdminPassword } from '../settings.js';
 
 const router = Router();
 
@@ -21,14 +22,11 @@ router.get('/session', (req, res) => {
   res.json({
     authenticated: isLoggedIn(req),
     activity: activityName(),
-    configured: !!process.env.GIRITON_API_TOKEN,
+    configured: !!apiToken(),
   });
 });
 
 router.post('/login', (req, res) => {
-  if (!process.env.ADMIN_PASSWORD) {
-    return res.status(500).json({ error: 'ADMIN_PASSWORD не задан на сервере' });
-  }
   if (!passwordMatches(req.body?.password)) {
     return res.status(401).json({ error: 'Неверный пароль' });
   }
@@ -78,7 +76,7 @@ router.get('/rows', async (req, res) => {
   res.json({
     month, year, items, totals,
     activity: activityName(),
-    names_sheet: !!process.env.NAMES_SHEET_URL,
+    names_sheet: !!getSetting('names_sheet_url'),
     last_sync: last.rows[0] || null,
   });
 });
@@ -166,6 +164,68 @@ router.delete('/advances/:id', async (req, res) => {
   res.json({ ok: true, deleted: r.rowCount });
 });
 
+/* ---------- настройки ---------- */
+
+// Токен наружу не отдаём никогда — только признак «задан» и последние символы для сверки.
+const maskToken = (t) => (t ? `••••••${t.slice(-4)}` : '');
+
+router.get('/settings', (req, res) => {
+  const token = apiToken();
+  res.json({
+    giriton_token_set: !!token,
+    giriton_token_hint: maskToken(token),
+    giriton_activity: activityName(),
+    names_sheet_url: getSetting('names_sheet_url'),
+    sync_interval_minutes: getSetting('sync_interval_minutes'),
+    password_from_env: !!process.env.ADMIN_PASSWORD,
+    locked: Object.fromEntries(['giriton_token', 'giriton_activity', 'names_sheet_url', 'sync_interval_minutes']
+      .map((k) => [k, isLockedByEnv(k)])),
+  });
+});
+
+router.put('/settings', async (req, res) => {
+  const saved = [];
+
+  for (const key of ['giriton_token', 'giriton_activity', 'names_sheet_url']) {
+    if (req.body[key] === undefined) continue;
+    if (isLockedByEnv(key)) continue;             // задано окружением — правка бессмысленна
+    let value = String(req.body[key]).trim();
+    // Пустой токен = «не менять»: поле показывается замаскированным и обычно приходит пустым.
+    if (key === 'giriton_token' && !value) continue;
+    if (key === 'names_sheet_url' && value && !toCsvUrl(value).includes('docs.google.com')) {
+      return res.status(400).json({ error: 'Это не похоже на ссылку на Google-таблицу' });
+    }
+    await setSetting(key, value);
+    saved.push(key);
+  }
+
+  if (req.body.sync_interval_minutes !== undefined && !isLockedByEnv('sync_interval_minutes')) {
+    const m = parseInt(req.body.sync_interval_minutes, 10);
+    if (Number.isNaN(m) || m < 0 || m > 1440) {
+      return res.status(400).json({ error: 'Интервал должен быть от 0 до 1440 минут' });
+    }
+    await setSetting('sync_interval_minutes', String(m));
+    saved.push('sync_interval_minutes');
+    startAutoSync();                              // подхватываем новый интервал без перезапуска
+  }
+
+  res.json({ ok: true, saved });
+});
+
+router.put('/settings/password', async (req, res) => {
+  if (process.env.ADMIN_PASSWORD) {
+    return res.status(400).json({ error: 'Пароль задан переменной ADMIN_PASSWORD — меняйте его там' });
+  }
+  if (!checkAdminPassword(req.body?.current)) {
+    return res.status(401).json({ error: 'Текущий пароль неверен' });
+  }
+  const next = String(req.body?.next ?? '');
+  if (next.length < 8) return res.status(400).json({ error: 'Новый пароль — минимум 8 символов' });
+
+  await setSetting('admin_password_hash', hashPassword(next));
+  res.json({ ok: true });
+});
+
 /* ---------- синхронизация ---------- */
 
 router.post('/sync', async (req, res) => {
@@ -180,7 +240,7 @@ router.post('/sync', async (req, res) => {
 
 // Отдельная синхронизация имён из Google-таблицы, без обращения к GIRITON.
 router.post('/sync/names', async (req, res) => {
-  if (!process.env.NAMES_SHEET_URL) return res.status(400).json({ error: 'NAMES_SHEET_URL не задан' });
+  if (!getSetting('names_sheet_url')) return res.status(400).json({ error: 'Ссылка на таблицу не задана в настройках' });
   try {
     res.json({ ok: true, ...(await syncNames()) });
   } catch (e) {
@@ -189,8 +249,8 @@ router.post('/sync/names', async (req, res) => {
 });
 
 router.get('/sync/check', async (req, res) => {
-  const token = process.env.GIRITON_API_TOKEN;
-  if (!token) return res.status(400).json({ ok: false, error: 'GIRITON_API_TOKEN не задан' });
+  const token = apiToken();
+  if (!token) return res.status(400).json({ ok: false, error: 'Токен GIRITON не задан в настройках' });
   try {
     await checkToken(token);
     res.json({ ok: true, activity: activityName() });

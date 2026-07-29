@@ -1,8 +1,9 @@
 // Перенос данных из GIRITON в БД: сотрудники (ID/карта) + часы за месяц.
 // Ручные поля — имя, ставка, комментарий — НИКОГДА не перезаписываются синхронизацией.
 import { query } from './db.js';
-import { fetchMonth, activityName } from './giriton.js';
+import { fetchMonth, activityName, apiToken } from './giriton.js';
 import { syncNames } from './names.js';
+import { getSetting } from './settings.js';
 
 export function currentPeriod() {
   const d = new Date();
@@ -10,8 +11,8 @@ export function currentPeriod() {
 }
 
 export async function syncMonth({ month, year, source = 'manual' }) {
-  const token = process.env.GIRITON_API_TOKEN;
-  if (!token) throw new Error('GIRITON_API_TOKEN не задан в переменных окружения.');
+  const token = apiToken();
+  if (!token) throw new Error('Токен GIRITON не задан. Откройте «Настройки» и вставьте REST API токен.');
 
   let data;
   try {
@@ -46,7 +47,7 @@ export async function syncMonth({ month, year, source = 'manual' }) {
 
   // Имена подтягиваем следом, чтобы новые ID из GIRITON сразу получили ФИО из таблицы.
   let names = null;
-  if (process.env.NAMES_SHEET_URL) {
+  if (getSetting('names_sheet_url')) {
     try {
       names = await syncNames();
     } catch (e) {
@@ -65,18 +66,25 @@ async function log({ month, year, ok, workers, message, source }) {
 }
 
 // Фоновая автосинхронизация текущего месяца: «информация переносится сама».
-export function startAutoSync() {
-  const minutes = parseInt(process.env.SYNC_INTERVAL_MINUTES ?? '60', 10);
-  if (!minutes || minutes < 1) return console.log('Автосинхронизация выключена (SYNC_INTERVAL_MINUTES=0)');
-  if (!process.env.GIRITON_API_TOKEN) return console.log('Автосинхронизация не запущена: нет GIRITON_API_TOKEN');
+let timer = null;
 
-  const run = () => {
-    const { month, year } = currentPeriod();
-    syncMonth({ month, year, source: 'auto' })
-      .then((r) => console.log(`[autosync] ${month}.${year}: ${r.count} сотрудников`))
-      .catch((e) => console.error('[autosync]', e.message));
-  };
-  setTimeout(run, 10_000).unref?.();          // первый прогон вскоре после старта
-  setInterval(run, minutes * 60_000).unref?.();
+const runOnce = () => {
+  if (!apiToken()) return;                    // токен ещё не введён — просто ждём
+  const { month, year } = currentPeriod();
+  syncMonth({ month, year, source: 'auto' })
+    .then((r) => console.log(`[autosync] ${month}.${year}: ${r.count} сотрудников`))
+    .catch((e) => console.error('[autosync]', e.message));
+};
+
+// Вызывается при старте и после сохранения настроек: интервал и токен меняются на лету,
+// перезапускать сервис ради этого не нужно.
+export function startAutoSync() {
+  if (timer) { clearInterval(timer); timer = null; }
+  const minutes = parseInt(getSetting('sync_interval_minutes'), 10);
+  if (!minutes || minutes < 1) return console.log('Автосинхронизация выключена');
+
+  timer = setInterval(runOnce, minutes * 60_000);
+  timer.unref?.();
+  setTimeout(runOnce, 10_000).unref?.();       // первый прогон вскоре после старта
   console.log(`Автосинхронизация GIRITON каждые ${minutes} мин.`);
 }
